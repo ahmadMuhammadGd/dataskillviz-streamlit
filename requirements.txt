@@ -1,6 +1,5 @@
 compress_fasttext==0.1.5
 networkx==3.2.1
-numpy==2.2.2
 pandas==2.2.3
 plotly==5.24.1
 psycopg2_binary==2.9.10
