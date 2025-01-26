@@ -195,11 +195,13 @@ if __name__ == "__main__":
     if selected_choice:
         st.markdown(f'''
             > ### `{selected_choice.upper()}` Node Is Selected
-            > Click **Reset** below to get the initial network graph''')
+            > 👉 Click on Node to select it
+            > 👉 Click **Reset** below to get the initial network graph''')
     else:
         st.markdown(f'''
             > ### All Nodes Are Selected
-            > Click **Reset** to get the initial network graph''')
+            > 👉 Click on Node to select it
+            > 👉 Click **Reset** to get the initial network graph''')
 
     st.plotly_chart(fig, use_container_width=True, height=800, on_select="rerun", key="fig_state", selection_mode="points")
 
