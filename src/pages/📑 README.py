@@ -101,7 +101,7 @@ if __name__ == "__main__":
     st.markdown("# README")
     data_totals, data_tools, data_via = fetch_data_from_db()
     
-    batch_report = data_totals.groupby(['title', 'updated_at']).sum('count_per_job_title')
+    batch_report = data_totals.groupby(['title', 'updated_at']).sum('count_per_job_title').sort_values(by='updated_at', ascending=True)
     batch_report = batch_report.rename(columns={
         'title': 'job title',
         'updated_at': 'ingested at',
