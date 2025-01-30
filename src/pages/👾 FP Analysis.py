@@ -5,6 +5,9 @@ import plotly.graph_objects as go
 import networkx as nx
 import global_variables as gv
 from statistics import fmean
+import numpy as np 
+from dataclasses import dataclass, field
+from modules.GraphPlotter import PlotlyGraph
 
 # Set Streamlit page configuration
 st.set_page_config(
@@ -60,10 +63,9 @@ def fetch_data_from_db():
         if conn:
             conn.close()
 
-# Create NetworkX graph from data
 @st.cache_data
 def create_graph(data):
-    G = nx.Graph()
+    G = nx.DiGraph()
     for _, row in data.iterrows():
         G.add_node(row["source_tag_value"], weight=row["source_tag_freq"])
         G.add_node(row["target_tag_value"], weight=row["target_tag_freq"])
@@ -74,136 +76,43 @@ def create_graph(data):
         )
     return G, nx.arf_layout(G)
 
-def filter_by_adj(G, node):
-    neighbors = list(G.neighbors(node)) + [node]  
-    return G.subgraph(neighbors)
-
-def plot_graph(G, pos, target_node):
-    node_x, node_y, node_text, node_sizes, node_colors = [], [], [], [], []
-    edge_trace1, edge_trace2 = (
-        go.Scatter(
-            x=[], 
-            y=[], 
-            mode='lines', 
-            line=dict(width=1), 
-            hoverinfo='none'
-        ), 
-        go.Scatter(
-            x=[], 
-            y=[], 
-            mode='lines', 
-            line=dict(width=1), 
-            hoverinfo='none')
-    )
-
-    min_size, max_size = 10, 40
-    weights = {node: G.nodes[node].get('weight', 0) for node in G.nodes}
-    max_weight = max(weights.values()) or 1  
-    node_hovertext = [f"{name}<br>occurance: {weight}" for name, weight in weights.items()]
-    
-    target_neighbors = set(G.neighbors(target_node)) if target_node else set()
-
-    for node in G.nodes():
-        x, y = pos[node]
-        node_x.append(x)
-        node_y.append(y)
-        node_text.append(node)
-        
-        node_weight = G.nodes[node]['weight']
-        normalized_size = min_size + (node_weight / max_weight) * (max_size - min_size)
-        node_sizes.append(normalized_size)
-        node_colors.append('orange' if node == target_node else '#8B7EC8' if node in target_neighbors else '#878580')
-
-    for u, v in G.edges():
-        x0, y0 = pos[u]
-        x1, y1 = pos[v]
-        edge_trace = edge_trace1 if u == target_node or v == target_node else edge_trace2
-        edge_trace['x'] += tuple([x0, x1, None])
-        edge_trace['y'] += tuple([y0, y1, None])
-        edge_trace['line']['width'] = 2 if edge_trace == edge_trace1 else 0.1
-
-    edge_trace1['line']['color'], edge_trace2['line']['color'] = '#3f51b5', '#888'
-
-    node_trace = go.Scatter(
-        x=node_x, 
-        y=node_y, 
-        mode='markers+text',
-        text=node_text,  
-        textposition='top center',
-        hoverinfo='text',  
-        hovertext=node_hovertext, 
-        marker=dict(
-            color=node_colors,
-            size=node_sizes,
-            sizemode='diameter',
-            opacity=1
-        )
-    )
-
-    return go.Figure(
-        data=[edge_trace1, edge_trace2, node_trace],
-        layout=go.Layout(
-            showlegend=False,
-            hovermode='closest',
-            margin=dict(b=0, l=0, r=0, t=40),
-            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            height=550 
-        )
-    )
-
-
-
 if __name__ == "__main__":
-
     st.title("👇 Tool Co-occurrence via FP Mining")
     data = fetch_data_from_db()
-    G, pos = create_graph(data)
-
+    network, layout = create_graph(data)
+    
+    if 'plotter' not in st.session_state:
+        st.session_state.plotter = PlotlyGraph(network)
+    plotter = st.session_state.plotter
+    
     if "fig_state" in st.session_state:
         selected_points = st.session_state.fig_state["selection"]["points"]
         
-        if len(selected_points) > 0:
+        if len(selected_points) == 1:
             selected_choice = selected_points[0]["text"]
         else:
             selected_choice = None
     else:
         selected_choice = None
-
-
-    if "filter_figure" in st.session_state:
-        st.session_state.filter_figure = None
-        
-    filter_figure = st.sidebar.selectbox(
-        label="Filter Graph On Select",
-        options=[True, False],
-        index = 1
-    )
     
     st.sidebar.warning("❌ Distance between nodes is defined based on the layout and has no mathematical or analytical meaning.")
     
-    if selected_choice:
-        filtered_graph = G if not filter_figure else filter_by_adj(G, selected_choice)
-    else:
-        filtered_graph = G
-
-    if filter_figure:
-        pos = nx.arf_layout(filtered_graph)
-    
-    fig = plot_graph(filtered_graph, pos, selected_choice)
+    figure = plotter.plot(network, layout, selected_choice)
 
     if selected_choice:
-        st.markdown(f'''
+        st.sidebar.markdown(f'''
             > ### `{selected_choice.upper()}` Node Is Selected
-            > 👉 Click on Node to select it
+            > 👉 Click on Node to select it            
             > 👉 Click **Reset** below to get the initial network graph''')
     else:
-        st.markdown(f'''
+        st.sidebar.markdown(f'''
             > ### All Nodes Are Selected
-            > 👉 Click on Node to select it
+            > 👉 Click on Node to select it               
             > 👉 Click **Reset** to get the initial network graph''')
 
-    st.plotly_chart(fig, use_container_width=True, height=800, on_select="rerun", key="fig_state", selection_mode="points")
+    st.plotly_chart(figure, use_container_width=True, height=800, on_select="rerun", key="fig_state", selection_mode="points")
 
     if st.button("Reset", use_container_width=True, type="primary"):
+        # Reset both the selection and the layout
         selected_choice = None
+        st.session_state.plotter.cached_layout = None
