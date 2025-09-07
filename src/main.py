@@ -256,6 +256,11 @@ if __name__ == "__main__":
 
     
     st.markdown("# 👇 Data Tools Demand")
+
+    st.warning("""
+    ⚠️ This demo runs on a free tier database. If it’s offline, contact me for a walkthrough.
+    """)
+
     st.info("""
     📖 This search utilizes fuzzy search, fasttext embeddings, and SQL to retrieve data.
     
@@ -332,3 +337,4 @@ if __name__ == "__main__":
     **❌ Disclaimer:** This application is not a Large Language Model (LLM). 
     It uses semantic search based on word embeddings to analyze data skills in job contexts.
     """)
+ 
